@@ -137,10 +137,29 @@ python sample_data_generator.py --type airquality --count 1000
 
 ### Installation
 
+You can install the Python dependencies in several ways:
+
+#### Option 1: Using the Installation Script
+
 ```bash
-# Install Python dependencies
-pip install elasticsearch==8.12.0 python-dotenv==1.0.0 flask==2.3.3 requests==2.31.0 pandas==2.1.1 gunicorn==21.2.0
+./install_dependencies.sh
 ```
+
+#### Option 2: Manual Installation
+
+```bash
+pip install -r requirements-elasticsearch.txt
+```
+
+#### Option 3: Verify Installation
+
+To verify that all dependencies are installed correctly, run:
+
+```bash
+./verify_elasticsearch_setup.py
+```
+
+This script will check that all required packages are installed and demonstrate how to use them.
 
 ### Running the Flask Application
 

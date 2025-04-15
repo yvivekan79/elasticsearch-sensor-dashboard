@@ -199,6 +199,35 @@ If you can't connect to Elasticsearch:
 - Ensure the ES_HOST environment variable is correct
 - Check your network configuration and firewall settings
 
+### Python Dependency Issues
+
+If you encounter Python dependency issues:
+
+1. Verify your Python dependencies:
+   ```bash
+   ./verify_elasticsearch_setup.py
+   ```
+
+2. Check for import errors in the logs:
+   ```
+   ModuleNotFoundError: No module named 'elasticsearch'
+   ```
+
+3. Install missing dependencies:
+   ```bash
+   ./install_dependencies.sh
+   ```
+
+4. If you're still having issues, check for version compatibility:
+   ```bash
+   pip list | grep elasticsearch
+   ```
+
+5. For specific Elasticsearch 8.x compatibility issues, update your code:
+   - Use `from elasticsearch.exceptions import ApiError` instead of `ElasticsearchException`
+   - Use `basic_auth` parameter instead of separate `http_auth`
+   - Use proper data stream APIs (see documentation)
+
 ### Data Ingestion Problems
 
 If data isn't showing up:
