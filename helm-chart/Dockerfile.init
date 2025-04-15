@@ -1,0 +1,15 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy initialization scripts
+COPY setup_elasticsearch.py .
+COPY ingest_bulk_to_elasticsearch.py .
+COPY kibana_setup.py .
+COPY kibana_telemetry_dashboard.json .
+
+# The container will not run by itself, it will be executed by the job

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "elasticsearch-sensor-dashboard.fullname" . }}-scripts
+  labels:
+    {{- include "elasticsearch-sensor-dashboard.labels" . | nindent 4 }}
+data:
+  data-transfer.sh: |-
+    #!/bin/bash
+    # Script to copy sample data files to the PVC
+    set -e
+    
+    echo "Copying sensor data files to PVC..."
+    cp /tmp/source/temperaturesensor_data.csv /app/data/
+    cp /tmp/source/airqualitysensor_data.csv /app/data/
+    echo "Files copied successfully!"

@@ -1,0 +1,56 @@
+{{- if .Values.sampleData.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "elasticsearch-sensor-dashboard.fullname" . }}-data-transfer
+  labels:
+    {{- include "elasticsearch-sensor-dashboard.labels" . | nindent 4 }}
+    app.kubernetes.io/component: data-transfer
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"  # Execute before the init job
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "elasticsearch-sensor-dashboard.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: data-transfer
+    spec:
+      restartPolicy: OnFailure
+      volumes:
+        - name: sample-data
+          persistentVolumeClaim:
+            claimName: {{ include "elasticsearch-sensor-dashboard.fullname" . }}-sample-data
+        - name: scripts
+          configMap:
+            name: {{ include "elasticsearch-sensor-dashboard.fullname" . }}-scripts
+            defaultMode: 0755
+        - name: source-data
+          emptyDir: {}
+      initContainers:
+        - name: copy-source-files
+          image: "{{ .Values.webapp.image.repository }}:{{ .Values.webapp.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.webapp.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              cp /app/temperaturesensor_data.csv /tmp/source/
+              cp /app/airqualitysensor_data.csv /tmp/source/
+          volumeMounts:
+            - name: source-data
+              mountPath: /tmp/source
+      containers:
+        - name: data-transfer
+          image: busybox:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "/scripts/data-transfer.sh"]
+          volumeMounts:
+            - name: sample-data
+              mountPath: /app/data
+            - name: scripts
+              mountPath: /scripts
+            - name: source-data
+              mountPath: /tmp/source
+{{- end }}
