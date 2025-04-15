@@ -19,7 +19,7 @@ from urllib.parse import urlparse
 
 import requests
 from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import ElasticsearchException, TransportError
+from elasticsearch.exceptions import ApiError, ConnectionError as ESConnectionError
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
