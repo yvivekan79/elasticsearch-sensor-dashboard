@@ -3,8 +3,14 @@ import os
 import logging
 import threading
 import time
+import ssl
+from urllib.parse import urlparse
 from elasticsearch import Elasticsearch
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -19,16 +25,49 @@ ES_HOST = os.environ.get("ES_HOST", "http://localhost:9200")
 es_client = None
 
 def connect_elasticsearch():
-    """Connect to Elasticsearch with retry logic"""
+    """Connect to Elasticsearch with retry logic and 8.x compatibility"""
     global es_client
     max_retries = 5
     retry_count = 0
     
+    # Get credentials from environment variables
+    username = os.environ.get('ES_USERNAME', 'elastic')
+    password = os.environ.get('ES_PASSWORD', '')
+    api_key = os.environ.get('ES_API_KEY', '')
+    
+    # Parse URL to determine if SSL is needed
+    parsed_url = urlparse(ES_HOST)
+    use_ssl = parsed_url.scheme == 'https'
+    
+    # Setup connection params
+    conn_params = {
+        'hosts': [ES_HOST],
+        'request_timeout': 30,
+        'retry_on_timeout': True
+    }
+    
+    # Add authentication
+    if api_key:
+        conn_params['api_key'] = api_key
+    elif password:
+        conn_params['basic_auth'] = (username, password)
+    
+    # Setup SSL if needed
+    if use_ssl:
+        ssl_context = ssl.create_default_context()
+        # If using self-signed certs, you can disable verification
+        if os.environ.get('ES_VERIFY_CERTS', 'true').lower() == 'false':
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+        conn_params['ssl_context'] = ssl_context
+    
     while retry_count < max_retries:
         try:
-            es_client = Elasticsearch(ES_HOST)
+            es_client = Elasticsearch(**conn_params)
             if es_client.ping():
                 logger.info("Connected to Elasticsearch")
+                info = es_client.info()
+                logger.info(f"Elasticsearch version: {info.get('version', {}).get('number', 'unknown')}")
                 return es_client
             else:
                 raise Exception("Elasticsearch ping failed")
