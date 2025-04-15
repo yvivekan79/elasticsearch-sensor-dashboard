@@ -24,12 +24,8 @@ app.secret_key = os.environ.get("SESSION_SECRET", "default-secret-key")
 ES_HOST = os.environ.get("ES_HOST", "http://localhost:9200")
 es_client = None
 
-def connect_elasticsearch():
-    """Connect to Elasticsearch with retry logic and 8.x compatibility"""
-    global es_client
-    max_retries = 5
-    retry_count = 0
-    
+def create_elasticsearch_client():
+    """Create Elasticsearch client with 8.x compatibility settings"""
     # Get credentials from environment variables
     username = os.environ.get('ES_USERNAME', 'elastic')
     password = os.environ.get('ES_PASSWORD', '')
@@ -42,8 +38,9 @@ def connect_elasticsearch():
     # Setup connection params
     conn_params = {
         'hosts': [ES_HOST],
-        'request_timeout': 30,
-        'retry_on_timeout': True
+        'request_timeout': 10,  # Reduce timeout to avoid long waits
+        'retry_on_timeout': True,
+        'max_retries': 2  # Limit retries to avoid excessive delays
     }
     
     # Add authentication
@@ -61,9 +58,18 @@ def connect_elasticsearch():
             ssl_context.verify_mode = ssl.CERT_NONE
         conn_params['ssl_context'] = ssl_context
     
+    return Elasticsearch(**conn_params)
+
+def connect_elasticsearch():
+    """Connect to Elasticsearch with retry logic and 8.x compatibility"""
+    global es_client
+    max_retries = 2  # Reduce retries to avoid excessive delays
+    retry_count = 0
+    
     while retry_count < max_retries:
         try:
-            es_client = Elasticsearch(**conn_params)
+            # Create new client
+            es_client = create_elasticsearch_client()
             if es_client.ping():
                 logger.info("Connected to Elasticsearch")
                 info = es_client.info()
@@ -83,7 +89,21 @@ def connect_elasticsearch():
 
 def check_es_connection_async():
     """Check Elasticsearch connection in a separate thread"""
-    connect_elasticsearch()
+    global es_client
+    
+    # Initial connection attempt
+    es_client = connect_elasticsearch()
+    
+    # Setup periodic connection check (every 60 seconds)
+    while True:
+        time.sleep(60)
+        try:
+            if not es_client or not es_client.ping():
+                logger.info("Elasticsearch connection lost or not established, attempting to reconnect...")
+                es_client = connect_elasticsearch()
+        except Exception as e:
+            logger.warning(f"Error checking Elasticsearch connection: {str(e)}")
+            es_client = None
 
 # Start ES connection in background thread
 threading.Thread(target=check_es_connection_async, daemon=True).start()
@@ -102,34 +122,66 @@ def dashboard():
 @app.route('/status')
 def status():
     """Check the Elasticsearch connection status"""
-    if es_client and es_client.ping():
+    # If Elasticsearch client exists, attempt to get status
+    if es_client:
         try:
-            # Check if the data streams exist
-            temp_ds_exists = es_client.indices.exists_data_stream(name="temperaturesensor-ds")
-            air_ds_exists = es_client.indices.exists_data_stream(name="airqualitysensor-ds")
-            
-            # Get basic stats about the data streams
-            status_data = {
-                "elasticsearch": "connected",
-                "temperaturesensor_ds": "available" if temp_ds_exists else "not found",
-                "airqualitysensor_ds": "available" if air_ds_exists else "not found"
-            }
-            
-            # If data streams exist, get document counts
-            if temp_ds_exists:
-                temp_count = es_client.count(index="temperaturesensor-ds")
-                status_data["temperaturesensor_count"] = temp_count.get("count", 0)
-                
-            if air_ds_exists:
-                air_count = es_client.count(index="airqualitysensor-ds")
-                status_data["airqualitysensor_count"] = air_count.get("count", 0)
-                
-            return status_data
+            # Try to ping Elasticsearch
+            if es_client.ping():
+                try:
+                    # Check if the data streams exist
+                    temp_ds_exists = es_client.indices.exists_data_stream(name="temperaturesensor-ds")
+                    air_ds_exists = es_client.indices.exists_data_stream(name="airqualitysensor-ds")
+                    
+                    # Get basic stats about the data streams
+                    status_data = {
+                        "elasticsearch": "connected",
+                        "temperaturesensor_ds": "available" if temp_ds_exists else "not found",
+                        "airqualitysensor_ds": "available" if air_ds_exists else "not found"
+                    }
+                    
+                    # If data streams exist, get document counts
+                    if temp_ds_exists:
+                        temp_count = es_client.count(index="temperaturesensor-ds")
+                        status_data["temperaturesensor_count"] = temp_count.get("count", 0)
+                        
+                    if air_ds_exists:
+                        air_count = es_client.count(index="airqualitysensor-ds")
+                        status_data["airqualitysensor_count"] = air_count.get("count", 0)
+                        
+                    return status_data
+                except Exception as e:
+                    logger.error(f"Error checking data streams: {str(e)}")
+                    return {
+                        "elasticsearch": "error", 
+                        "error": str(e),
+                        "temperaturesensor_ds": "unknown",
+                        "airqualitysensor_ds": "unknown"
+                    }
+            else:
+                # Ping failed
+                return {
+                    "elasticsearch": "disconnected", 
+                    "message": "Elasticsearch is running but ping failed",
+                    "temperaturesensor_ds": "unknown",
+                    "airqualitysensor_ds": "unknown"
+                }
         except Exception as e:
-            logger.error(f"Error checking data streams: {str(e)}")
-            return {"elasticsearch": "error", "error": str(e)}
+            # Connection error
+            logger.error(f"Error connecting to Elasticsearch: {str(e)}")
+            return {
+                "elasticsearch": "error", 
+                "error": str(e),
+                "temperaturesensor_ds": "unknown",
+                "airqualitysensor_ds": "unknown"
+            }
     else:
-        return {"elasticsearch": "disconnected"}
+        # No client at all
+        return {
+            "elasticsearch": "disconnected",
+            "message": "Elasticsearch client not initialized",
+            "temperaturesensor_ds": "unknown",
+            "airqualitysensor_ds": "unknown"
+        }
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
