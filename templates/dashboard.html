@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kibana Dashboard - Elastic Sensor Telemetry</title>
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        .iframe-container {
+            height: calc(100vh - 58px);
+            width: 100%;
+            overflow: hidden;
+        }
+        .iframe-container iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+        .status-badge {
+            font-size: 0.9rem;
+            padding: 0.3rem 0.6rem;
+        }
+        .kibana-error {
+            display: none;
+            padding: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2 feather feather-activity">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+                Elastic Sensor Telemetry
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/dashboard">Dashboard</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <span id="kibanaStatus" class="badge rounded-pill bg-info text-dark status-badge">Connecting to Kibana...</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="iframe-container">
+        <iframe id="kibanaFrame" src="{{ kibana_url }}/app/dashboards#/view/sensor-telemetry-dashboard" allow="fullscreen" onload="frameLoaded()" onerror="frameError()"></iframe>
+    </div>
+
+    <div id="kibanaError" class="kibana-error">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="card bg-dark">
+                        <div class="card-header bg-danger text-white">
+                            <h5 class="mb-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-alert-triangle me-2">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                                </svg>
+                                Kibana Connection Error
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-danger">
+                                <h6>Could not connect to Kibana</h6>
+                                <p>The application cannot connect to Kibana at <code id="kibanaUrlDisplay">{{ kibana_url }}</code>.</p>
+                            </div>
+                            
+                            <h6>Possible Solutions:</h6>
+                            <ol>
+                                <li>Ensure Kibana is running and accessible at the configured URL.</li>
+                                <li>Check that Elasticsearch is also running and properly connected to Kibana.</li>
+                                <li>Verify that the dashboard has been created using <code>kibana_setup.py</code>.</li>
+                                <li>Make sure your network allows access to the Kibana URL.</li>
+                            </ol>
+                            
+                            <div class="mt-4">
+                                <a href="/" class="btn btn-primary">Return to Home</a>
+                                <button id="retryButton" class="btn btn-outline-secondary ms-2">Retry Connection</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const kibanaFrame = document.getElementById('kibanaFrame');
+        const kibanaError = document.getElementById('kibanaError');
+        const kibanaStatus = document.getElementById('kibanaStatus');
+        const kibanaUrlDisplay = document.getElementById('kibanaUrlDisplay');
+        const retryButton = document.getElementById('retryButton');
+        const kibanaUrl = "{{ kibana_url }}";
+        
+        // Update the Kibana URL display
+        kibanaUrlDisplay.textContent = kibanaUrl;
+        
+        // Set a timeout to detect if Kibana fails to load
+        let frameLoadTimeout = setTimeout(() => {
+            showError();
+        }, 15000);
+        
+        // Function called when iframe loads successfully
+        function frameLoaded() {
+            clearTimeout(frameLoadTimeout);
+            kibanaStatus.className = 'badge rounded-pill bg-success status-badge';
+            kibanaStatus.textContent = 'Connected';
+            kibanaError.style.display = 'none';
+            kibanaFrame.style.display = 'block';
+        }
+        
+        // Function called when iframe fails to load
+        function frameError() {
+            clearTimeout(frameLoadTimeout);
+            showError();
+        }
+        
+        // Show the error message
+        function showError() {
+            kibanaStatus.className = 'badge rounded-pill bg-danger status-badge';
+            kibanaStatus.textContent = 'Connection Error';
+            kibanaError.style.display = 'block';
+            kibanaFrame.style.display = 'none';
+        }
+        
+        // Retry loading the Kibana iframe
+        retryButton.addEventListener('click', function() {
+            kibanaStatus.className = 'badge rounded-pill bg-info text-dark status-badge';
+            kibanaStatus.textContent = 'Reconnecting...';
+            
+            kibanaFrame.src = kibanaUrl + '/app/dashboards#/view/sensor-telemetry-dashboard';
+            kibanaError.style.display = 'none';
+            kibanaFrame.style.display = 'block';
+            
+            // Set a new timeout for the retry attempt
+            frameLoadTimeout = setTimeout(() => {
+                showError();
+            }, 15000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elastic Sensor Telemetry</title>
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .status-badge {
+            font-size: 0.9rem;
+            padding: 0.3rem 0.6rem;
+        }
+        .component-card {
+            transition: all 0.3s ease;
+        }
+        .component-card:hover {
+            transform: translateY(-5px);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-2 feather feather-activity">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+                Elastic Sensor Telemetry
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="refreshStatusLink">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-refresh-cw">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <polyline points="1 20 1 14 7 14"></polyline>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                            </svg>
+                            Refresh Status
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card bg-dark shadow mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Sensor Telemetry Dashboard</h5>
+                        <span class="badge rounded-pill bg-info text-dark status-badge" id="connectionStatus">Checking connection...</span>
+                    </div>
+                    <div class="card-body">
+                        <p>
+                            This application provides a complete setup for Elasticsearch data streams with sensor telemetry data:
+                        </p>
+                        <ul>
+                            <li>Temperature sensors data (temperature readings)</li>
+                            <li>Air quality sensors data (CO, NO2, O3, PM10, PM2.5, SO2)</li>
+                        </ul>
+                        <p>
+                            The application sets up ingest pipelines, index templates, and data streams in Elasticsearch, 
+                            and provides tools for ingesting sample data and visualizing it through Kibana.
+                        </p>
+                        <div class="alert alert-info">
+                            <strong>Note:</strong> For ongoing data ingestion, Telegraf is recommended.
+                            This application handles the initial setup and sample data ingestion.
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/dashboard" class="btn btn-primary">View Kibana Dashboard</a>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#setupModal">
+                            Setup Instructions
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-dark shadow mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Component Status</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="statusInfo">Loading status information...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card component-card bg-dark shadow mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Temperature Sensor Data</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="temperatureChart"></canvas>
+                        <div class="mt-3" id="temperatureStats">
+                            <div class="spinner-border text-secondary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="ms-2">Loading temperature data...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card component-card bg-dark shadow mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Air Quality Sensor Data</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="airQualityChart"></canvas>
+                        <div class="mt-3" id="airQualityStats">
+                            <div class="spinner-border text-secondary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="ms-2">Loading air quality data...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Setup Modal -->
+    <div class="modal fade" id="setupModal" tabindex="-1" aria-labelledby="setupModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="setupModalLabel">Setup Instructions</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-4">
+                        <h6>1. Setup Elasticsearch</h6>
+                        <pre class="bg-dark text-light p-3 rounded">python setup_elasticsearch.py --host http://localhost:9200 --wait</pre>
+                        <p>This will create ingest pipelines, index templates, and data streams in Elasticsearch.</p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h6>2. Generate Sample Data</h6>
+                        <pre class="bg-dark text-light p-3 rounded">python sample_data_generator.py --count 1000 --interval 15</pre>
+                        <p>This will generate sample temperature and air quality data in CSV format.</p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h6>3. Ingest Sample Data</h6>
+                        <pre class="bg-dark text-light p-3 rounded">python ingest_bulk_to_elasticsearch.py --csv temperaturesensor_data.csv --index temperaturesensor-ds --host http://localhost:9200</pre>
+                        <pre class="bg-dark text-light p-3 rounded">python ingest_bulk_to_elasticsearch.py --csv airqualitysensor_data.csv --index airqualitysensor-ds --host http://localhost:9200</pre>
+                        <p>This will ingest the sample data into the Elasticsearch data streams.</p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h6>4. Setup Kibana</h6>
+                        <pre class="bg-dark text-light p-3 rounded">python kibana_setup.py --kibana-host http://localhost:5601 --es-host http://localhost:9200 --wait</pre>
+                        <p>This will create index patterns and sample visualizations in Kibana.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Charts and data
+        let temperatureChart = null;
+        let airQualityChart = null;
+
+        // Fetch status information
+        function fetchStatus() {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    const connectionStatusEl = document.getElementById('connectionStatus');
+                    const statusInfoEl = document.getElementById('statusInfo');
+                    
+                    if (data.elasticsearch === 'connected') {
+                        connectionStatusEl.className = 'badge rounded-pill bg-success status-badge';
+                        connectionStatusEl.textContent = 'Connected';
+                        
+                        // Build status content
+                        let statusContent = '<ul class="list-group list-group-flush">';
+                        
+                        // Elasticsearch
+                        statusContent += `<li class="list-group-item bg-dark">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Elasticsearch</span>
+                                <span class="badge bg-success rounded-pill">Connected</span>
+                            </div>
+                        </li>`;
+                        
+                        // Temperature data stream
+                        const tempStatus = data.temperaturesensor_ds === 'available' ? 'success' : 'danger';
+                        const tempText = data.temperaturesensor_ds === 'available' ? 'Available' : 'Not Found';
+                        statusContent += `<li class="list-group-item bg-dark">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Temperature Data Stream</span>
+                                <span class="badge bg-${tempStatus} rounded-pill">${tempText}</span>
+                            </div>
+                            ${data.temperaturesensor_count ? `<small class="text-muted">${data.temperaturesensor_count} documents</small>` : ''}
+                        </li>`;
+                        
+                        // Air quality data stream
+                        const airStatus = data.airqualitysensor_ds === 'available' ? 'success' : 'danger';
+                        const airText = data.airqualitysensor_ds === 'available' ? 'Available' : 'Not Found';
+                        statusContent += `<li class="list-group-item bg-dark">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Air Quality Data Stream</span>
+                                <span class="badge bg-${airStatus} rounded-pill">${airText}</span>
+                            </div>
+                            ${data.airqualitysensor_count ? `<small class="text-muted">${data.airqualitysensor_count} documents</small>` : ''}
+                        </li>`;
+                        
+                        statusContent += '</ul>';
+                        statusInfoEl.innerHTML = statusContent;
+                        
+                        // Update charts if data is available
+                        if (data.temperaturesensor_ds === 'available') {
+                            updateTemperatureChart();
+                        }
+                        
+                        if (data.airqualitysensor_ds === 'available') {
+                            updateAirQualityChart();
+                        }
+                        
+                    } else {
+                        connectionStatusEl.className = 'badge rounded-pill bg-danger status-badge';
+                        connectionStatusEl.textContent = 'Disconnected';
+                        
+                        statusInfoEl.innerHTML = `
+                            <div class="alert alert-danger">
+                                <h6>Connection Error</h6>
+                                <p>Could not connect to Elasticsearch. Please ensure that:</p>
+                                <ul>
+                                    <li>Elasticsearch is running and accessible</li>
+                                    <li>The correct host URL is configured</li>
+                                </ul>
+                                <p class="mb-0">Check the console for more details.</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching status:', error);
+                    document.getElementById('connectionStatus').className = 'badge rounded-pill bg-danger status-badge';
+                    document.getElementById('connectionStatus').textContent = 'Error';
+                    
+                    document.getElementById('statusInfo').innerHTML = `
+                        <div class="alert alert-danger">
+                            <h6>Connection Error</h6>
+                            <p>Failed to fetch status information.</p>
+                            <p class="mb-0">Error: ${error.message}</p>
+                        </div>
+                    `;
+                });
+        }
+
+        // Initialize charts with sample data (will be updated with real data later)
+        function initCharts() {
+            // Temperature chart
+            const tempCtx = document.getElementById('temperatureChart').getContext('2d');
+            temperatureChart = new Chart(tempCtx, {
+                type: 'line',
+                data: {
+                    labels: Array(10).fill().map((_, i) => `Sample ${i+1}`),
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: Array(10).fill(null),
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        tension: 0.1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: false,
+                            text: 'Temperature Data'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+
+            // Air Quality chart
+            const airCtx = document.getElementById('airQualityChart').getContext('2d');
+            airQualityChart = new Chart(airCtx, {
+                type: 'line',
+                data: {
+                    labels: Array(10).fill().map((_, i) => `Sample ${i+1}`),
+                    datasets: [
+                        {
+                            label: 'PM2.5',
+                            data: Array(10).fill(null),
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            tension: 0.1,
+                            fill: false
+                        },
+                        {
+                            label: 'CO',
+                            data: Array(10).fill(null),
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            tension: 0.1,
+                            fill: false
+                        },
+                        {
+                            label: 'NO2',
+                            data: Array(10).fill(null),
+                            borderColor: 'rgba(255, 206, 86, 1)',
+                            tension: 0.1,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: false,
+                            text: 'Air Quality Data'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Placeholder functions for chart updates - in a real implementation,
+        // these would fetch data from the Elasticsearch API
+        function updateTemperatureChart() {
+            document.getElementById('temperatureStats').innerHTML = `
+                <div class="text-center">
+                    <p class="text-muted">Sample temperature data visualization.</p>
+                    <p class="text-muted">For full analytics, use the Kibana dashboard.</p>
+                    <a href="/dashboard" class="btn btn-sm btn-outline-primary mt-2">Open in Kibana</a>
+                </div>
+            `;
+            
+            // This would normally fetch actual data from Elasticsearch
+            const dates = Array(10).fill().map((_, i) => {
+                const date = new Date();
+                date.setHours(date.getHours() - i);
+                return date.toLocaleTimeString();
+            }).reverse();
+            
+            const temperatures = [22.5, 23.1, 23.8, 24.2, 24.0, 23.7, 23.2, 22.8, 22.4, 22.3];
+            
+            temperatureChart.data.labels = dates;
+            temperatureChart.data.datasets[0].data = temperatures;
+            temperatureChart.update();
+        }
+
+        function updateAirQualityChart() {
+            document.getElementById('airQualityStats').innerHTML = `
+                <div class="text-center">
+                    <p class="text-muted">Sample air quality data visualization.</p>
+                    <p class="text-muted">For full analytics, use the Kibana dashboard.</p>
+                    <a href="/dashboard" class="btn btn-sm btn-outline-primary mt-2">Open in Kibana</a>
+                </div>
+            `;
+            
+            // This would normally fetch actual data from Elasticsearch
+            const dates = Array(10).fill().map((_, i) => {
+                const date = new Date();
+                date.setHours(date.getHours() - i);
+                return date.toLocaleTimeString();
+            }).reverse();
+            
+            const pm25Values = [18.2, 17.8, 19.1, 20.3, 21.5, 20.8, 19.2, 18.7, 17.9, 17.5];
+            const coValues = [0.8, 0.9, 1.1, 1.3, 1.4, 1.2, 1.0, 0.9, 0.8, 0.7];
+            const no2Values = [22.5, 24.1, 26.8, 28.2, 27.0, 25.7, 24.2, 22.8, 21.4, 20.3];
+            
+            airQualityChart.data.labels = dates;
+            airQualityChart.data.datasets[0].data = pm25Values;
+            airQualityChart.data.datasets[1].data = coValues;
+            airQualityChart.data.datasets[2].data = no2Values;
+            airQualityChart.update();
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            initCharts();
+            fetchStatus();
+            
+            // Set up refresh status link
+            document.getElementById('refreshStatusLink').addEventListener('click', function(e) {
+                e.preventDefault();
+                fetchStatus();
+            });
+        });
+    </script>
+</body>
+</html>
