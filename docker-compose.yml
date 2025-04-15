@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.12.1
@@ -7,15 +6,18 @@ services:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms512m -Xmx512m
       - xpack.security.enabled=true
+      - xpack.security.enrollment.enabled=true
       - ELASTIC_PASSWORD=changeme
+      - KIBANA_SYSTEM_PASSWORD=changeme
     volumes:
       - esdata:/usr/share/elasticsearch/data
+      - ./init-scripts:/usr/share/elasticsearch/init-scripts
     ports:
       - "9200:9200"
     networks:
       - elastic
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      test: ["CMD", "curl", "-f", "-u", "elastic:changeme", "http://localhost:9200"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -27,10 +29,12 @@ services:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
       - ELASTICSEARCH_USERNAME=kibana_system
       - ELASTICSEARCH_PASSWORD=changeme
+      - ELASTICSEARCH_SSL_VERIFICATIONMODE=none
     ports:
       - "5601:5601"
     depends_on:
       - elasticsearch
+      - setup_kibana_user
     networks:
       - elastic
     healthcheck:
@@ -38,6 +42,25 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+      
+  setup_kibana_user:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.1
+    container_name: setup_kibana_user
+    command: >
+      bash -c '
+        echo "Waiting for Elasticsearch to start..."
+        until curl -s -u elastic:changeme http://elasticsearch:9200 >/dev/null; do
+          sleep 5
+        done
+        
+        echo "Setting kibana_system user password..."
+        curl -X POST -u elastic:changeme -H "Content-Type: application/json" http://elasticsearch:9200/_security/user/kibana_system/_password -d "{\"password\":\"changeme\"}"
+        echo "Done. Kibana system user password set."
+      '
+    networks:
+      - elastic
+    depends_on:
+      - elasticsearch
 
 networks:
   elastic:

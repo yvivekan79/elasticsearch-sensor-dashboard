@@ -34,7 +34,7 @@ A Python-based solution to set up Elasticsearch 8.x data streams for sensor tele
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/elasticsearch-sensor-dashboard.git
+   git clone https://github.com/yvivekan79/elasticsearch-sensor-dashboard.git
    cd elasticsearch-sensor-dashboard
    ```
 
@@ -50,26 +50,41 @@ A Python-based solution to set up Elasticsearch 8.x data streams for sensor tele
    ```bash
    docker-compose up -d
    ```
+   
+   The setup will automatically:
+   - Start Elasticsearch with security enabled
+   - Configure the kibana_system user with proper authentication
+   - Start Kibana connected to Elasticsearch
 
-4. Set up the Elasticsearch environment:
+4. Wait for the services to be fully available (this may take a few minutes):
    ```bash
-   python setup_elasticsearch.py
+   # Check Elasticsearch status
+   curl -u elastic:changeme http://localhost:9200/_cluster/health
+   
+   # Check Kibana status
+   curl http://localhost:5601/api/status
    ```
 
-5. Ingest sample data:
+5. Set up the Elasticsearch environment:
    ```bash
-   python ingest_bulk_to_elasticsearch.py --csv temperaturesensor_data.csv --index temperaturesensor-ds
-   python ingest_bulk_to_elasticsearch.py --csv airqualitysensor_data.csv --index airqualitysensor-ds
+   # Use authentication parameters
+   python setup_elasticsearch.py --host http://localhost:9200 --username elastic --password changeme
    ```
 
-6. Set up Kibana dashboards:
+6. Ingest sample data:
    ```bash
-   python kibana_setup.py
+   python ingest_bulk_to_elasticsearch.py --csv temperaturesensor_data.csv --index temperaturesensor-ds --username elastic --password changeme
+   python ingest_bulk_to_elasticsearch.py --csv airqualitysensor_data.csv --index airqualitysensor-ds --username elastic --password changeme
    ```
 
-7. Access the applications:
+7. Set up Kibana dashboards:
+   ```bash
+   python kibana_setup.py --es-username elastic --es-password changeme
+   ```
+
+8. Access the applications:
    - Web Dashboard: http://localhost:5000
-   - Kibana: http://localhost:5601
+   - Kibana: http://localhost:5601 (use elastic/changeme to login)
 
 ## Kubernetes Deployment
 
@@ -86,6 +101,30 @@ For production deployment to Kubernetes, please refer to the [Helm Chart README]
 - `ES_VERIFY_CERTS`: Whether to verify SSL certificates (default: true)
 - `KIBANA_URL`: Kibana host URL
 - `SESSION_SECRET`: Secret key for Flask sessions
+
+### Elasticsearch 8.x Security
+
+Elasticsearch 8.x comes with security enabled by default. This project is configured to work with the security features:
+
+1. **Built-in Users**:
+   - `elastic`: The superuser (default password: `changeme`)
+   - `kibana_system`: System user for Kibana (password set automatically)
+
+2. **Authentication Methods**:
+   - Basic Authentication (username/password)
+   - API Key Authentication
+   
+3. **Docker Compose Security Setup**:
+   - The setup automatically configures the `kibana_system` user credentials
+   - All scripts accept authentication parameters
+
+4. **Securing Your Deployment**:
+   - For production, change the default passwords:
+     ```bash
+     # Update the elastic user password
+     curl -X POST -u elastic:changeme -H "Content-Type: application/json" http://localhost:9200/_security/user/elastic/_password -d '{"password":"new_secure_password"}'
+     ```
+   - Update your `.env` file and docker-compose.yml with the new passwords
 
 ## Sample Data
 
