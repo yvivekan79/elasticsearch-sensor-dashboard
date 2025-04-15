@@ -1,0 +1,12 @@
+{
+  "attributes": {
+    "title": "Telemetry Dashboard - Temperature & Air Quality",
+    "panelsJSON": "[{\"panelIndex\": \"1\", \"gridData\": {\"x\": 0, \"y\": 0, \"w\": 24, \"h\": 15, \"i\": \"1\"}, \"type\": \"lens\", \"embeddableConfig\": {}, \"title\": \"Temperature over Time\", \"explicitInput\": {\"savedObjectId\": \"temp-over-time\"}}, {\"panelIndex\": \"2\", \"gridData\": {\"x\": 0, \"y\": 16, \"w\": 24, \"h\": 15, \"i\": \"2\"}, \"type\": \"lens\", \"embeddableConfig\": {}, \"title\": \"Air Quality: PM2.5, CO, NO2\", \"explicitInput\": {\"savedObjectId\": \"air-quality-bar\"}}]",
+    "optionsJSON": "{\"useMargins\": true, \"syncColors\": false}",
+    "version": 1,
+    "timeRestore": false,
+    "kibanaSavedObjectMeta": {
+      "searchSourceJSON": "{\"query\": {\"language\": \"kuery\", \"query\": \"\"}, \"filter\": []}"
+    }
+  }
+}

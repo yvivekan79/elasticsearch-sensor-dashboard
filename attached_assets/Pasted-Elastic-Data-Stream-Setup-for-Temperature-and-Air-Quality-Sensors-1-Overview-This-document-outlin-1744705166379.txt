@@ -1,0 +1,121 @@
+Elastic Data Stream Setup for Temperature and Air Quality Sensors
+1. Overview
+This document outlines the steps to bring up an Elasticsearch data stream with two types of telemetry data: temperature sensors and air quality sensors. It includes sample data generation, index templates, ingest pipelines, data stream creation, bulk ingestion using Python, and Kibana visualization setup.
+2. Sample Data Generation
+Two CSV files with 1000 records each (15-minute intervals) were generated:
+- temperaturesensor_data.csv
+- airqualitysensor_data.csv
+3. Ingest Pipelines
+3.1 Temperature Sensor Pipeline
+
+PUT _ingest/pipeline/temperaturesensor_pipeline
+{
+  "description": "Flatten and enrich temperature telemetry",
+  "processors": [
+    { "set": { "field": "ingested_at", "value": "{{_ingest.timestamp}}" } },
+    { "rename": { "field": "temperaturesensor.telemetry_temperature_value", "target_field": "temperature_value" } },
+    { "rename": { "field": "temperaturesensor.telemetry_temperature_unit", "target_field": "temperature_unit" } },
+    { "remove": { "field": "temperaturesensor" } }
+  ]
+}
+
+3.2 Air Quality Sensor Pipeline
+
+PUT _ingest/pipeline/airqualitysensor_pipeline
+{
+  "description": "Flatten and enrich air quality telemetry",
+  "processors": [
+    { "set": { "field": "ingested_at", "value": "{{_ingest.timestamp}}" } },
+    { "rename": { "field": "airqualitysensor.telemetry_co_value", "target_field": "co" } },
+    { "rename": { "field": "airqualitysensor.telemetry_no2_value", "target_field": "no2" } },
+    { "rename": { "field": "airqualitysensor.telemetry_o3_value", "target_field": "o3" } },
+    { "rename": { "field": "airqualitysensor.telemetry_pm10_value", "target_field": "pm10" } },
+    { "rename": { "field": "airqualitysensor.telemetry_pm25_value", "target_field": "pm25" } },
+    { "rename": { "field": "airqualitysensor.telemetry_so2_value", "target_field": "so2" } },
+    { "remove": { "field": "airqualitysensor" } }
+  ]
+}
+
+4. Index Templates
+4.1 Temperature Sensor Template
+
+PUT _index_template/temperaturesensor_template
+{
+  "index_patterns": ["temperaturesensor-*"],
+  "data_stream": {},
+  "template": {
+    "settings": {
+      "index.default_pipeline": "temperaturesensor_pipeline"
+    },
+    "mappings": {
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "temperature_value": { "type": "float" },
+        "temperature_unit": { "type": "keyword" },
+        "ingested_at": { "type": "date" },
+        "measurement_name": { "type": "keyword" },
+        "tag": {
+          "properties": {
+            "host": { "type": "keyword" },
+            "sensor_type": { "type": "keyword" }
+          }
+        },
+        "uuid": { "type": "keyword" }
+      }
+    }
+  }
+}
+
+4.2 Air Quality Sensor Template
+
+PUT _index_template/airqualitysensor_template
+{
+  "index_patterns": ["airqualitysensor-*"],
+  "data_stream": {},
+  "template": {
+    "settings": {
+      "index.default_pipeline": "airqualitysensor_pipeline"
+    },
+    "mappings": {
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "co": { "type": "float" },
+        "no2": { "type": "float" },
+        "o3": { "type": "float" },
+        "pm10": { "type": "float" },
+        "pm25": { "type": "float" },
+        "so2": { "type": "float" },
+        "ingested_at": { "type": "date" },
+        "measurement_name": { "type": "keyword" },
+        "tag": {
+          "properties": {
+            "host": { "type": "keyword" },
+            "sensor_type": { "type": "keyword" }
+          }
+        },
+        "uuid": { "type": "keyword" }
+      }
+    }
+  }
+}
+
+5. Data Stream Creation
+
+PUT /_data_stream/temperaturesensor-ds
+PUT /_data_stream/airqualitysensor-ds
+
+6. Python Ingestion Script
+Use the provided CLI script to bulk ingest CSV data into Elasticsearch:
+Command Example:
+python ingest_bulk_to_elasticsearch.py --csv temperaturesensor_data.csv --index temperaturesensor-ds --host http://localhost:9200
+7. Kibana Setup
+
+1. Go to Stack Management > Index Patterns.
+2. Create index patterns: temperaturesensor-* and airqualitysensor-* using @timestamp.
+3. Use Discover to explore data.
+4. Use Lens to build visualizations:
+   - Temperature over Time
+   - Air Quality metrics (CO, PM2.5, NO2)
+5. Create dashboard and add visualizations.
+6. Import provided JSON: kibana_telemetry_dashboard.json
+
