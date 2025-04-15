@@ -1,0 +1,112 @@
+# Default values for elasticsearch-sensor-dashboard
+# This is a YAML-formatted file.
+
+# Flask Web Application configuration
+webapp:
+  replicaCount: 1
+  image:
+    repository: your-docker-registry/elasticsearch-sensor-dashboard
+    tag: latest
+    pullPolicy: IfNotPresent
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 5000
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: dashboard.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  env:
+    ES_HOST: "http://elasticsearch-sensor-dashboard-elasticsearch-master:9200"
+    KIBANA_URL: "http://elasticsearch-sensor-dashboard-kibana:5601"
+    ES_USERNAME: "elastic"
+    # ES_PASSWORD will be taken from the secret
+    ES_VERIFY_CERTS: "true"
+    SESSION_SECRET: "change-this-secret-key-in-production"
+  initJob:
+    enabled: true
+    image:
+      repository: your-docker-registry/elasticsearch-sensor-dashboard-init
+      tag: latest
+      pullPolicy: IfNotPresent
+    backoffLimit: 3
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+
+# Elasticsearch configuration overrides
+elasticsearch:
+  replicas: 1
+  minimumMasterNodes: 1
+  persistence:
+    enabled: true
+    size: 10Gi
+  resources:
+    requests:
+      cpu: "1"
+      memory: "2Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  esJavaOpts: "-Xmx2g -Xms2g"
+  clusterHealthCheckParams: "wait_for_status=yellow&timeout=1s"
+  
+  # Security settings
+  protocol: http  # Change to https for production
+  secret:
+    enabled: true
+    password: "changeme"  # Change for production
+
+# Kibana configuration overrides
+kibana:
+  replicas: 1
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: kibana.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+    
+  # Configure Kibana to connect to Elasticsearch
+  elasticsearchHosts: "http://elasticsearch-sensor-dashboard-elasticsearch-master:9200"
+  
+# Persistent Volume for sample data (for initialization)
+sampleData:
+  enabled: true
+  size: 1Gi
+  storageClassName: "standard"

@@ -1,0 +1,17 @@
+{{- if .Values.sampleData.enabled -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "elasticsearch-sensor-dashboard.fullname" . }}-sample-data
+  labels:
+    {{- include "elasticsearch-sensor-dashboard.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.sampleData.storageClassName }}
+  storageClassName: {{ .Values.sampleData.storageClassName }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.sampleData.size }}
+{{- end }}

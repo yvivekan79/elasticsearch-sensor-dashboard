@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "elasticsearch-sensor-dashboard.fullname" . }}-webapp
+  labels:
+    {{- include "elasticsearch-sensor-dashboard.labels" . | nindent 4 }}
+    app.kubernetes.io/component: webapp
+spec:
+  replicas: {{ .Values.webapp.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "elasticsearch-sensor-dashboard.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: webapp
+  template:
+    metadata:
+      labels:
+        {{- include "elasticsearch-sensor-dashboard.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: webapp
+    spec:
+      securityContext:
+        {{- toYaml .Values.webapp.securityContext | nindent 8 }}
+      containers:
+        - name: webapp
+          image: "{{ .Values.webapp.image.repository }}:{{ .Values.webapp.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.webapp.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          env:
+            - name: ES_HOST
+              value: {{ .Values.webapp.env.ES_HOST | quote }}
+            - name: KIBANA_URL
+              value: {{ .Values.webapp.env.KIBANA_URL | quote }}
+            - name: ES_USERNAME
+              value: {{ .Values.webapp.env.ES_USERNAME | quote }}
+            - name: ES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "elasticsearch-sensor-dashboard.fullname" . }}-elasticsearch-master-credentials
+                  key: password
+            - name: ES_VERIFY_CERTS
+              value: {{ .Values.webapp.env.ES_VERIFY_CERTS | quote }}
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "elasticsearch-sensor-dashboard.fullname" . }}-webapp-secrets
+                  key: session-secret
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.webapp.resources | nindent 12 }}
+      {{- with .Values.webapp.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webapp.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.webapp.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

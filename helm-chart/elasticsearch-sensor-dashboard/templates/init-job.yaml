@@ -1,0 +1,62 @@
+{{- if .Values.webapp.initJob.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "elasticsearch-sensor-dashboard.fullname" . }}-init
+  labels:
+    {{- include "elasticsearch-sensor-dashboard.labels" . | nindent 4 }}
+    app.kubernetes.io/component: init-job
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.webapp.initJob.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "elasticsearch-sensor-dashboard.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: init-job
+    spec:
+      restartPolicy: OnFailure
+      volumes:
+        - name: sample-data
+          persistentVolumeClaim:
+            claimName: {{ include "elasticsearch-sensor-dashboard.fullname" . }}-sample-data
+      containers:
+        - name: init-elasticsearch
+          image: "{{ .Values.webapp.initJob.image.repository }}:{{ .Values.webapp.initJob.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.webapp.initJob.image.pullPolicy }}
+          volumeMounts:
+            - name: sample-data
+              mountPath: /app/data
+          env:
+            - name: ES_HOST
+              value: {{ .Values.webapp.env.ES_HOST | quote }}
+            - name: KIBANA_URL
+              value: {{ .Values.webapp.env.KIBANA_URL | quote }}
+            - name: ES_USERNAME
+              value: {{ .Values.webapp.env.ES_USERNAME | quote }}
+            - name: ES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "elasticsearch-sensor-dashboard.fullname" . }}-elasticsearch-master-credentials
+                  key: password
+            - name: ES_VERIFY_CERTS
+              value: {{ .Values.webapp.env.ES_VERIFY_CERTS | quote }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # Wait for Elasticsearch to be ready
+              python setup_elasticsearch.py --host $ES_HOST --retry 30
+              
+              # Ingest sample data
+              python ingest_bulk_to_elasticsearch.py --csv /app/data/temperaturesensor_data.csv --index temperaturesensor-ds --host $ES_HOST
+              python ingest_bulk_to_elasticsearch.py --csv /app/data/airqualitysensor_data.csv --index airqualitysensor-ds --host $ES_HOST
+              
+              # Set up Kibana
+              python kibana_setup.py --kibana $KIBANA_URL --es $ES_HOST --retry 30
+          resources:
+            {{- toYaml .Values.webapp.initJob.resources | nindent 12 }}
+{{- end }}

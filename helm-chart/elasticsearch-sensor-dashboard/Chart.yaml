@@ -1,0 +1,13 @@
+apiVersion: v2
+name: elasticsearch-sensor-dashboard
+description: A Helm chart for deploying Elasticsearch and Kibana with a Flask dashboard for sensor data streams
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+  - name: elasticsearch
+    version: "8.13.0"
+    repository: "https://helm.elastic.co"
+  - name: kibana
+    version: "8.13.0"
+    repository: "https://helm.elastic.co"
