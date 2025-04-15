@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 import pandas as pd
 import requests
 from elasticsearch import Elasticsearch, helpers
-from elasticsearch.exceptions import ElasticsearchException
+from elasticsearch.exceptions import ApiError, ConnectionError as ESConnectionError
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -183,7 +183,7 @@ def bulk_ingest(es, documents, batch_size, dry_run):
             success_count += resp[0]
             error_count += len(resp[1]) if len(resp) > 1 else 0
             logger.info(f"Ingested batch {i//batch_size + 1}/{(total_docs//batch_size) + 1}")
-        except ElasticsearchException as e:
+        except Exception as e:
             logger.error(f"Error during bulk ingestion: {str(e)}")
             error_count += len(batch)
     

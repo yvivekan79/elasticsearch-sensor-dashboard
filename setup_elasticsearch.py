@@ -118,6 +118,10 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Setup Elasticsearch for sensor telemetry')
     parser.add_argument('--host', default=os.environ.get('ES_HOST', 'http://localhost:9200'),
                       help='Elasticsearch host URL')
+    parser.add_argument('--username', default=os.environ.get('ES_USERNAME', 'elastic'),
+                      help='Elasticsearch username')
+    parser.add_argument('--password', default=os.environ.get('ES_PASSWORD', ''),
+                      help='Elasticsearch password')
     parser.add_argument('--wait', action='store_true', 
                       help='Wait for Elasticsearch to be available')
     parser.add_argument('--force', action='store_true',
@@ -125,7 +129,15 @@ def parse_arguments():
     parser.add_argument('--components', default='all',
                       choices=['all', 'pipelines', 'templates', 'datastreams'],
                       help='Components to setup')
-    return parser.parse_args()
+    args = parser.parse_args()
+    
+    # Set environment variables for the credentials
+    if args.username:
+        os.environ['ES_USERNAME'] = args.username
+    if args.password:
+        os.environ['ES_PASSWORD'] = args.password
+        
+    return args
 
 def wait_for_elasticsearch(host, max_retries=12, delay=5):
     """Wait for Elasticsearch to become available, with Elasticsearch 8.x compatibility"""
@@ -255,7 +267,7 @@ def setup_pipelines(es, force=False):
         
         es.ingest.put_pipeline(id=pipeline_id, body=TEMPERATURE_PIPELINE)
         logger.info(f"Successfully created pipeline: {pipeline_id}")
-    except ElasticsearchException as e:
+    except Exception as e:
         logger.error(f"Error creating temperature pipeline: {str(e)}")
         success = False
     
@@ -268,7 +280,7 @@ def setup_pipelines(es, force=False):
         
         es.ingest.put_pipeline(id=pipeline_id, body=AIR_QUALITY_PIPELINE)
         logger.info(f"Successfully created pipeline: {pipeline_id}")
-    except ElasticsearchException as e:
+    except Exception as e:
         logger.error(f"Error creating air quality pipeline: {str(e)}")
         success = False
     
@@ -287,7 +299,7 @@ def setup_templates(es, force=False):
         
         es.indices.put_index_template(name=template_name, body=TEMPERATURE_TEMPLATE)
         logger.info(f"Successfully created template: {template_name}")
-    except ElasticsearchException as e:
+    except Exception as e:
         logger.error(f"Error creating temperature template: {str(e)}")
         success = False
     
@@ -300,7 +312,7 @@ def setup_templates(es, force=False):
         
         es.indices.put_index_template(name=template_name, body=AIR_QUALITY_TEMPLATE)
         logger.info(f"Successfully created template: {template_name}")
-    except ElasticsearchException as e:
+    except Exception as e:
         logger.error(f"Error creating air quality template: {str(e)}")
         success = False
     
@@ -319,7 +331,7 @@ def setup_data_streams(es, force=False):
         
         es.indices.create_data_stream(name=stream_name)
         logger.info(f"Successfully created data stream: {stream_name}")
-    except ElasticsearchException as e:
+    except Exception as e:
         if "resource_already_exists_exception" in str(e):
             logger.info(f"Data stream already exists: {stream_name}")
         else:
@@ -335,7 +347,7 @@ def setup_data_streams(es, force=False):
         
         es.indices.create_data_stream(name=stream_name)
         logger.info(f"Successfully created data stream: {stream_name}")
-    except ElasticsearchException as e:
+    except Exception as e:
         if "resource_already_exists_exception" in str(e):
             logger.info(f"Data stream already exists: {stream_name}")
         else:
