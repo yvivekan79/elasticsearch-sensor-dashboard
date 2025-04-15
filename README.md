@@ -30,7 +30,7 @@ A Python-based solution to set up Elasticsearch 8.x data streams for sensor tele
 └── airqualitysensor_data.csv       # Sample air quality sensor data
 ```
 
-## Quick Start with Docker Compose
+## Quick Start with Docker Compose (Fully Automated)
 
 1. Clone the repository:
    ```bash
@@ -38,15 +38,7 @@ A Python-based solution to set up Elasticsearch 8.x data streams for sensor tele
    cd elasticsearch-sensor-dashboard
    ```
 
-2. Set up environment variables (create a `.env` file):
-   ```
-   ES_HOST=http://elasticsearch:9200
-   ES_USERNAME=elastic
-   ES_PASSWORD=changeme
-   KIBANA_URL=http://kibana:5601
-   ```
-
-3. Start the containers:
+2. Start the containers with a single command:
    ```bash
    docker-compose up -d
    ```
@@ -55,36 +47,32 @@ A Python-based solution to set up Elasticsearch 8.x data streams for sensor tele
    - Start Elasticsearch with security enabled
    - Configure the kibana_system user with proper authentication
    - Start Kibana connected to Elasticsearch
+   - Set up all Elasticsearch data streams and templates
+   - Ingest sample data into Elasticsearch
+   - Configure Kibana dashboards
+   - Start the web application
 
-4. Wait for the services to be fully available (this may take a few minutes):
+3. Wait for all services to be ready (may take a few minutes on first run):
    ```bash
-   # Check Elasticsearch status
-   curl -u elastic:changeme http://localhost:9200/_cluster/health
-   
-   # Check Kibana status
-   curl http://localhost:5601/api/status
+   # Watch the setup progress
+   docker-compose logs -f setup_elasticsearch
    ```
 
-5. Set up the Elasticsearch environment:
-   ```bash
-   # Use authentication parameters
-   python setup_elasticsearch.py --host http://localhost:9200 --username elastic --password changeme
-   ```
-
-6. Ingest sample data:
-   ```bash
-   python ingest_bulk_to_elasticsearch.py --csv temperaturesensor_data.csv --index temperaturesensor-ds --username elastic --password changeme
-   python ingest_bulk_to_elasticsearch.py --csv airqualitysensor_data.csv --index airqualitysensor-ds --username elastic --password changeme
-   ```
-
-7. Set up Kibana dashboards:
-   ```bash
-   python kibana_setup.py --es-username elastic --es-password changeme
-   ```
-
-8. Access the applications:
+4. Access the applications:
    - Web Dashboard: http://localhost:5000
-   - Kibana: http://localhost:5601 (use elastic/changeme to login)
+   - Kibana: http://localhost:5601 (use `elastic`/`changeme` to login)
+
+### What's Happening Behind the Scenes
+
+The Docker Compose setup creates multiple containers:
+
+- **elasticsearch**: The Elasticsearch 8.x server with security enabled
+- **kibana**: The Kibana 8.x dashboard interface
+- **setup_kibana_user**: Configures authentication for Kibana
+- **setup_elasticsearch**: Sets up Elasticsearch data streams and ingests sample data
+- **webapp**: Runs the Flask web application
+
+All the Python dependencies are pre-installed in the Docker containers, so you don't need to install anything locally!
 
 ## Kubernetes Deployment
 

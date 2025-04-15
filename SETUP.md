@@ -19,8 +19,17 @@ cd elasticsearch-sensor-dashboard
 
 ### 2. Install Python Dependencies
 
+The easiest way to install dependencies is to use the provided installation script:
+
 ```bash
-pip install elasticsearch==8.12.0 python-dotenv==1.0.0 flask==2.3.3 requests==2.31.0 pandas==2.1.1 gunicorn==21.2.0
+chmod +x install_dependencies.sh
+./install_dependencies.sh
+```
+
+Alternatively, you can install them manually:
+
+```bash
+pip install -r requirements-elasticsearch.txt
 ```
 
 ### 3. Configure Environment Variables
@@ -41,13 +50,43 @@ KIBANA_URL=http://localhost:5601
 SESSION_SECRET=change-this-secret-key-in-production
 ```
 
-### 4. Start Elasticsearch and Kibana
+### 4. Automated Docker Setup (Recommended)
+
+The easiest way to run the entire system is using the automated Docker setup:
 
 ```bash
 docker-compose up -d
 ```
 
-### 5. Wait for Services to Start
+This single command will:
+- Start Elasticsearch with security enabled
+- Configure the kibana_system user with proper authentication
+- Start Kibana connected to Elasticsearch
+- Set up all Elasticsearch data streams and templates
+- Ingest sample data into Elasticsearch
+- Configure Kibana dashboards
+- Start the web application
+
+You can monitor the setup progress with:
+```bash
+docker-compose logs -f setup_elasticsearch
+```
+
+After the setup completes, you can access:
+- Web Dashboard: http://localhost:5000
+- Kibana: http://localhost:5601 (use `elastic`/`changeme` to login)
+
+### 5. Manual Setup (Alternative)
+
+If you prefer to run the components manually, follow these steps:
+
+#### 5.1 Start Elasticsearch and Kibana
+
+```bash
+docker-compose up -d elasticsearch kibana setup_kibana_user
+```
+
+#### 5.2 Wait for Services to Start
 
 Wait for Elasticsearch and Kibana to fully start up. This might take a minute or two. You can check the status with:
 
@@ -55,7 +94,7 @@ Wait for Elasticsearch and Kibana to fully start up. This might take a minute or
 docker-compose ps
 ```
 
-### 6. Set Up Elasticsearch Environment
+#### 5.3 Set Up Elasticsearch Environment
 
 This script will create the necessary pipelines, templates, and data streams:
 
@@ -63,7 +102,7 @@ This script will create the necessary pipelines, templates, and data streams:
 python setup_elasticsearch.py
 ```
 
-### 7. Ingest Sample Data
+#### 5.4 Ingest Sample Data
 
 Load the sample data into the data streams:
 
@@ -72,7 +111,7 @@ python ingest_bulk_to_elasticsearch.py --csv temperaturesensor_data.csv --index 
 python ingest_bulk_to_elasticsearch.py --csv airqualitysensor_data.csv --index airqualitysensor-ds
 ```
 
-### 8. Set Up Kibana Dashboards
+#### 5.5 Set Up Kibana Dashboards
 
 This script will create index patterns and import dashboards:
 
@@ -80,7 +119,7 @@ This script will create index patterns and import dashboards:
 python kibana_setup.py
 ```
 
-### 9. Start the Web Application
+### 6. Start the Web Application
 
 For development:
 

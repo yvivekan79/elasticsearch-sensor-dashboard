@@ -61,6 +61,65 @@ services:
       - elastic
     depends_on:
       - elasticsearch
+      
+  webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webapp
+    environment:
+      - ES_HOST=http://elasticsearch:9200
+      - ES_USERNAME=elastic
+      - ES_PASSWORD=changeme
+      - KIBANA_URL=http://kibana:5601
+    ports:
+      - "5000:5000"
+    networks:
+      - elastic
+    depends_on:
+      - elasticsearch
+      - kibana
+      
+  setup_elasticsearch:
+    build:
+      context: .
+      dockerfile: Dockerfile.setup
+    container_name: setup_elasticsearch
+    environment:
+      - ES_HOST=http://elasticsearch:9200
+      - ES_USERNAME=elastic
+      - ES_PASSWORD=changeme
+      - KIBANA_URL=http://kibana:5601
+    networks:
+      - elastic
+    depends_on:
+      - elasticsearch
+      - kibana
+      - setup_kibana_user
+    command: >
+      /bin/bash -c "
+        echo 'Waiting for Elasticsearch and Kibana to be ready...'
+        until curl -s -u elastic:changeme http://elasticsearch:9200 >/dev/null; do
+          sleep 5
+        done
+        until curl -s http://kibana:5601/api/status >/dev/null; do
+          sleep 5
+        done
+        
+        echo 'Setting up Elasticsearch...'
+        python setup_elasticsearch.py
+        
+        echo 'Ingesting temperature sensor data...'
+        python ingest_bulk_to_elasticsearch.py --csv temperaturesensor_data.csv --index temperaturesensor-ds
+        
+        echo 'Ingesting air quality sensor data...'
+        python ingest_bulk_to_elasticsearch.py --csv airqualitysensor_data.csv --index airqualitysensor-ds
+        
+        echo 'Setting up Kibana dashboards...'
+        python kibana_setup.py
+        
+        echo 'Setup complete!'
+      "
 
 networks:
   elastic:

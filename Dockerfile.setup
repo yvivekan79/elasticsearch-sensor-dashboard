@@ -1,0 +1,25 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install Python dependencies
+COPY requirements-elasticsearch.txt .
+RUN pip install --no-cache-dir -r requirements-elasticsearch.txt
+
+# Copy only the necessary setup files
+COPY setup_elasticsearch.py .
+COPY ingest_bulk_to_elasticsearch.py .
+COPY kibana_setup.py .
+COPY temperaturesensor_data.csv .
+COPY airqualitysensor_data.csv .
+COPY kibana_telemetry_dashboard.json .
+
+# Set environment variables
+ENV ES_HOST=http://elasticsearch:9200
+ENV ES_USERNAME=elastic
+ENV ES_PASSWORD=changeme
+ENV KIBANA_URL=http://kibana:5601
+
+# Run setup script by default
+ENTRYPOINT ["python"]
+CMD ["setup_elasticsearch.py"]
