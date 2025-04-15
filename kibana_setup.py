@@ -13,9 +13,15 @@ import logging
 import os
 import sys
 import time
+import ssl
+from urllib.parse import urlparse
 
 import requests
 from elasticsearch import Elasticsearch
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -133,7 +139,39 @@ def import_kibana_dashboard(kibana_host, dashboard_file):
 def create_sample_dashboard(kibana_host):
     """Create a sample telemetry dashboard if no dashboard file is available"""
     # First, check if data exists in Elasticsearch
-    es = Elasticsearch(os.environ.get('ES_HOST', 'http://localhost:9200'))
+    # Connect to Elasticsearch with 8.x compatibility
+    host = os.environ.get('ES_HOST', 'http://localhost:9200')
+    username = os.environ.get('ES_USERNAME', 'elastic')
+    password = os.environ.get('ES_PASSWORD', 'changeme')
+    api_key = os.environ.get('ES_API_KEY', '')
+    
+    # Parse URL to determine if SSL is needed
+    parsed_url = urlparse(host)
+    use_ssl = parsed_url.scheme == 'https'
+    
+    # Configure connection options for Elasticsearch 8.x
+    conn_params = {
+        'hosts': [host],
+        'request_timeout': 30,
+        'retry_on_timeout': True
+    }
+    
+    # Add authentication
+    if api_key:
+        conn_params['api_key'] = api_key
+    elif password:
+        conn_params['basic_auth'] = (username, password)
+    
+    # Add SSL if needed
+    if use_ssl:
+        ssl_context = ssl.create_default_context()
+        # If using self-signed certs, you can disable verification
+        if os.environ.get('ES_VERIFY_CERTS', 'true').lower() == 'false':
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+        conn_params['ssl_context'] = ssl_context
+        
+    es = Elasticsearch(**conn_params)
     
     temperature_exists = False
     airquality_exists = False

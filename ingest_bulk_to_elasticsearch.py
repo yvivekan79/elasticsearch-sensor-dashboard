@@ -13,12 +13,18 @@ import logging
 import os
 import sys
 import uuid
+import ssl
 from datetime import datetime
+from urllib.parse import urlparse
 
 import pandas as pd
 import requests
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch.exceptions import ElasticsearchException
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -45,12 +51,56 @@ def parse_arguments():
     return parser.parse_args()
 
 def connect_to_elasticsearch(host):
-    """Connect to Elasticsearch cluster"""
+    """Connect to Elasticsearch cluster with 8.x compatibility"""
     try:
-        es = Elasticsearch(host)
+        # Get credentials from environment variables
+        username = os.environ.get('ES_USERNAME', 'elastic')
+        password = os.environ.get('ES_PASSWORD', 'changeme')
+        api_key = os.environ.get('ES_API_KEY', '')
+        
+        # Parse URL to determine if SSL is needed
+        parsed_url = urlparse(host)
+        use_ssl = parsed_url.scheme == 'https'
+        
+        # Setup SSL context if using HTTPS
+        ssl_context = None
+        if use_ssl:
+            ssl_context = ssl.create_default_context()
+            # If using self-signed certs, you can disable verification
+            if os.environ.get('ES_VERIFY_CERTS', 'true').lower() == 'false':
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+        
+        # Configure connection options for Elasticsearch 8.x
+        conn_params = {
+            'hosts': [host],
+            'request_timeout': 30,
+            'retry_on_timeout': True
+        }
+        
+        # Add authentication
+        if api_key:
+            conn_params['api_key'] = api_key
+        elif password:
+            conn_params['basic_auth'] = (username, password)
+        
+        # Add SSL if needed
+        if ssl_context:
+            conn_params['ssl_context'] = ssl_context
+            
+        # Create the Elasticsearch client with appropriate parameters
+        es = Elasticsearch(**conn_params)
+        
+        # Test the connection
         if not es.ping():
             logger.error(f"Failed to connect to Elasticsearch at {host}")
             return None
+            
+        logger.info(f"Successfully connected to Elasticsearch at {host}")
+        # Log the Elasticsearch version
+        info = es.info()
+        logger.info(f"Elasticsearch version: {info.get('version', {}).get('number', 'unknown')}")
+        
         return es
     except Exception as e:
         logger.error(f"Error connecting to Elasticsearch: {str(e)}")
