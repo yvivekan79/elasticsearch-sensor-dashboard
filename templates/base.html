@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sensor Telemetry Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <style>
+        .bd-placeholder-img {
+            font-size: 1.125rem;
+            text-anchor: middle;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            user-select: none;
+        }
+
+        @media (min-width: 768px) {
+            .bd-placeholder-img-lg {
+                font-size: 3.5rem;
+            }
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        
+        .status-connected {
+            background-color: var(--bs-success);
+        }
+        
+        .status-disconnected {
+            background-color: var(--bs-danger);
+        }
+        
+        .status-error {
+            background-color: var(--bs-warning);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="/">Sensor Telemetry</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarCollapse">
+                    <ul class="navbar-nav me-auto mb-2 mb-md-0">
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/">Home</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.path == '/dashboard' %}active{% endif %}" href="/dashboard">Kibana Dashboard</a>
+                        </li>
+                    </ul>
+                    <div class="d-flex align-items-center">
+                        <div id="elasticStatus">
+                            <span class="status-indicator status-disconnected"></span>
+                            <span class="status-text">Disconnected</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container" style="padding-top: 80px;">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer mt-auto py-3 bg-dark">
+        <div class="container">
+            <span class="text-muted">Elastic Data Stream Monitor - Sensor Telemetry</span>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Check Elasticsearch connection status periodically
+        function updateStatus() {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    const statusIndicator = document.querySelector('.status-indicator');
+                    const statusText = document.querySelector('.status-text');
+                    
+                    if (data.elasticsearch === 'connected') {
+                        statusIndicator.className = 'status-indicator status-connected';
+                        statusText.textContent = 'Connected';
+                    } else if (data.elasticsearch === 'error') {
+                        statusIndicator.className = 'status-indicator status-error';
+                        statusText.textContent = 'Error: ' + data.error;
+                    } else {
+                        statusIndicator.className = 'status-indicator status-disconnected';
+                        statusText.textContent = 'Disconnected';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching status:', error);
+                });
+        }
+        
+        // Update status on page load and every 10 seconds
+        updateStatus();
+        setInterval(updateStatus, 10000);
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
